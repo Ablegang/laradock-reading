@@ -1,11 +1,33 @@
-version: '3'
+# compose file 3 参考文档：https://docs.docker.com/compose/compose-file/
+# 注意到 compose file 2 的 url 是 https://docs.docker.com/compose/compose-file/compose-file-v2/，而 file 3 的文档未标识版本
+# 所以可能如果 compose 出 file 4 的时候，file 3 的 url 会改变
 
+# yaml 格式以六十进制处理数值，所以数字尽可能以双引号括起
+# 一个 标准的 docker-compose 配置文件，一般包含三个主要部分：version、networks、services
+# .yaml 和 .yml 都被支持
+
+# docker compose file 支持 .env 环境变量，当使用 docker-compose 命令行时，会自动载入 compose file 同级目录下的 .env 文件
+
+# version 指令主要指使用的 compose 版本，一般是 1,2,3，目前 3 是最新版本
+version: "3"
+
+# networks 指令定义此项目内所有容器共用的网络
+# 如下定义了 frontend 和 backend 两个网络驱动
 networks:
   frontend:
     driver: ${NETWORKS_DRIVER}
   backend:
     driver: ${NETWORKS_DRIVER}
 
+# 为容器（服务）指定一系列数据卷
+# 一般默认的 volume 驱动是 local
+# volume name 必须是唯一的，就算是不同的 volume driver
+# windows 下的 docker 内置了 local 驱动
+# 另外 windows 的 docker 本质上是先架设了一个 linux 虚拟机，再在虚拟机上运行 docker
+# 在 docker desktop for windows 里面，就已经设定了本地磁盘与虚拟机的文件系统映射
+# 如下的 volumes 是为每个服务（容器）都定义了一个 volume driver
+# 虽然可以在 services 的子选项里定义 volumes，但由于 volumes 可以支持映射主机路径或数据卷，如果想要映射数据卷，则必须 file 中定义 volumes
+# 这一点，可以参考本文件中的 elasticsearch
 volumes:
   mysql:
     driver: ${VOLUMES_DRIVER}
@@ -48,99 +70,195 @@ volumes:
   cassandra:
     driver: ${VOLUMES_DRIVER}
 
+# services 是一个顶级选项，定义此 compose 项目中，包含了哪些服务
 services:
 
 ### Workspace Utilities ##################################
+
+    # 定义 workspace 服务（容器）
     workspace:
+      # build key 可以指定当前服务的 dockerfile 路径，它支持绝对路径和相对路径，也支持两种写法
+      # 可以直接用 build 指定路径，如 build: ./workspace，这是一种最简单的构建
+      # 以下写法则是更高级的写法，用 context 指定服务在主机上的基本路径，然后再定义如 args、dockerfile 等子参数来实现更高级的功能
       build:
+        # context 可以指定 dockerfile 所在的目录，不仅可以是本地目录，还可以是 git 仓库的目录
+        # 如果是本地目录，它支持绝对路径和相对路径，如果是相对路径，则是相对于 docker compose file 所在的目录
+        # 这个路径也是在构建时，要发送给 docker daemon 的上下文路径
         context: ./workspace
+
+        # 定义<构建时环境变量>，只在镜像构建的过程中能够访问
+        # 通过 args 定义的<构建时环境变量>，必须在该服务的 dockerfile 中有通过 ARG 指令来定义过了，此处只是传递值
+        # dockerfile 中 ARG 指令可能已经给了默认值，但会以 compose file 给的值为准
         args:
+          # 定义 PHP 版本
           - LARADOCK_PHP_VERSION=${PHP_VERSION}
+          # 定义 phalcon 版本，c 写的 php 框架扩展
           - LARADOCK_PHALCON_VERSION=${PHALCON_VERSION}
+          # 是否安装 SVN 版本控制工具
           - INSTALL_SUBVERSION=${WORKSPACE_INSTALL_SUBVERSION}
+          # 是否安装 xdebug，php debug 扩展
           - INSTALL_XDEBUG=${WORKSPACE_INSTALL_XDEBUG}
+          # 是否安装 php debugger，作为 sapi ，可以对环境进行完全控制，而不影响代码功能和性能
           - INSTALL_PHPDBG=${WORKSPACE_INSTALL_PHPDBG}
+          # 是否安装 black fire，一款性能测试工具
           - INSTALL_BLACKFIRE=${INSTALL_BLACKFIRE}
+          # 是否安装 SSH2，ssh 工具的升级版，基于新的协议
           - INSTALL_SSH2=${WORKSPACE_INSTALL_SSH2}
+          # 是否安装 GMP，gnu 算法库
           - INSTALL_GMP=${WORKSPACE_INSTALL_GMP}
+          # 是否安装 PHP SOAP 扩展，SOAP 是一种服务器/客户端通信方式
           - INSTALL_SOAP=${WORKSPACE_INSTALL_SOAP}
+          # 是否安装 PHP xsl 扩展，一种处理 xml 的扩展
           - INSTALL_XSL=${WORKSPACE_INSTALL_XSL}
+          # 是否安装 PHP ldap 扩展，ldap 是一种轻型目录访问协议
           - INSTALL_LDAP=${WORKSPACE_INSTALL_LDAP}
+          # 是否安装 PHP imap 扩展，一种处理邮箱功能的扩展
           - INSTALL_IMAP=${WORKSPACE_INSTALL_IMAP}
+          # 是否安装 PHP mongo 扩展
           - INSTALL_MONGO=${WORKSPACE_INSTALL_MONGO}
+          # 是否安装 PHP AMQP 扩展，消息队列扩展
           - INSTALL_AMQP=${WORKSPACE_INSTALL_AMQP}
+          # 是否安装 PHP cassandra 扩展，cassandra 是一个 nosql 系统
           - INSTALL_CASSANDRA=${WORKSPACE_INSTALL_CASSANDRA}
+          # 是否安装 PHP gearman 扩展，gearman 是一套支持负载均衡、任务分发的框架
           - INSTALL_GEARMAN=${WORKSPACE_INSTALL_GEARMAN}
+          # 是否安装 php redis 扩展
           - INSTALL_PHPREDIS=${WORKSPACE_INSTALL_PHPREDIS}
+          # 是否安装 php sqlserver 扩展
           - INSTALL_MSSQL=${WORKSPACE_INSTALL_MSSQL}
+          # 是否安装 前端相关工具，如 nvm、npm、gulp 等，这是个主开关，详情可以看 workspace/Dockerfile
           - INSTALL_NODE=${WORKSPACE_INSTALL_NODE}
+          # npm registry 地址，一般用于设置国内加速器（镜像）
           - NPM_REGISTRY=${WORKSPACE_NPM_REGISTRY}
+          # 是否安装 YARN，Hadoop 的资源管理器，类似于 php 的 composer
           - INSTALL_YARN=${WORKSPACE_INSTALL_YARN}
+          # 前端 NPM 相关
           - INSTALL_NPM_GULP=${WORKSPACE_INSTALL_NPM_GULP}
           - INSTALL_NPM_BOWER=${WORKSPACE_INSTALL_NPM_BOWER}
           - INSTALL_NPM_VUE_CLI=${WORKSPACE_INSTALL_NPM_VUE_CLI}
           - INSTALL_NPM_ANGULAR_CLI=${WORKSPACE_INSTALL_NPM_ANGULAR_CLI}
+          # 是否安装 drush，一个 dupal cms 的命令行工具
           - INSTALL_DRUSH=${WORKSPACE_INSTALL_DRUSH}
+          # 是否安装 wp-cli，一个 wordpress 的命令行工具
           - INSTALL_WP_CLI=${WORKSPACE_INSTALL_WP_CLI}
+          # 是或否安装 dupal，一个 php cms
           - INSTALL_DRUPAL_CONSOLE=${WORKSPACE_INSTALL_DRUPAL_CONSOLE}
+          # 是否安装 php aerospike 扩展，aerospike 是个 nosql
           - INSTALL_AEROSPIKE=${WORKSPACE_INSTALL_AEROSPIKE}
+          # 是否安装 v8js 扩展，一般用于 ssr（服务端渲染）
           - INSTALL_V8JS=${WORKSPACE_INSTALL_V8JS}
+          # 是否进行 composer 全局安装
           - COMPOSER_GLOBAL_INSTALL=${WORKSPACE_COMPOSER_GLOBAL_INSTALL}
+          # 检查 composer auth
           - COMPOSER_AUTH=${WORKSPACE_COMPOSER_AUTH}
+          # 指定 composer 源
           - COMPOSER_REPO_PACKAGIST=${WORKSPACE_COMPOSER_REPO_PACKAGIST}
+          # 是否开启 容器的 ssh 功能，默认只是通过 docker exec -it 或 docker-compose exec 来的
           - INSTALL_WORKSPACE_SSH=${WORKSPACE_INSTALL_WORKSPACE_SSH}
+          # 是否安装 laravel envoy，一个 laravel 栈下的远程执行命令工具，https://learnku.com/laravel/t/24/laravel-envoy-elegant-ssh-remote-task-execution-tool
           - INSTALL_LARAVEL_ENVOY=${WORKSPACE_INSTALL_LARAVEL_ENVOY}
+          # 是否安装 laravle installer ，一个 laravel 安装器
           - INSTALL_LARAVEL_INSTALLER=${WORKSPACE_INSTALL_LARAVEL_INSTALLER}
+          # 是否安装 deployer，一个 php 部署工具，很实用，https://deployer.org/
           - INSTALL_DEPLOYER=${WORKSPACE_INSTALL_DEPLOYER}
+          # 是否安装 hirak/prestissimo 包，为 composer 开启多进程下载，https://learnku.com/articles/7399/composer-packet-sharing-hirakprestissimo-open-multiple-process-downloads-for-composer-installupdate
           - INSTALL_PRESTISSIMO=${WORKSPACE_INSTALL_PRESTISSIMO}
+          # 是否安装 linuxbrew，一个 linux 包管理器，不过仓库已经迁移了，当前版本的 laradock ，从 workspace 的 Dockerfile 里看，下载 url 未更新
           - INSTALL_LINUXBREW=${WORKSPACE_INSTALL_LINUXBREW}
+          # 是否安装 minio 对象存储服务器
           - INSTALL_MC=${WORKSPACE_INSTALL_MC}
+          # 是否安装 symfony 框架
           - INSTALL_SYMFONY=${WORKSPACE_INSTALL_SYMFONY}
+          # 是否安装 python
           - INSTALL_PYTHON=${WORKSPACE_INSTALL_PYTHON}
+          # 是否安装图片优化功能，主要安装了这几个包 jpegoptim optipng pngquant gifsicle
           - INSTALL_IMAGE_OPTIMIZERS=${WORKSPACE_INSTALL_IMAGE_OPTIMIZERS}
+          # 是否安装 ImageMagick 功能及 php ImageMagick 扩展，一个图像处理工具
           - INSTALL_IMAGEMAGICK=${WORKSPACE_INSTALL_IMAGEMAGICK}
+          # 是否安装 terraform ，Terraform 是一种安全有效地构建、更改和版本控制基础设施的工具(基础架构自动化的编排工具)
           - INSTALL_TERRAFORM=${WORKSPACE_INSTALL_TERRAFORM}
+          # dusk 一个浏览器测试工具
           - INSTALL_DUSK_DEPS=${WORKSPACE_INSTALL_DUSK_DEPS}
+          # pgsql client
           - INSTALL_PG_CLIENT=${WORKSPACE_INSTALL_PG_CLIENT}
+          # phalcon 扩展
           - INSTALL_PHALCON=${WORKSPACE_INSTALL_PHALCON}
+          # swoole 扩展
           - INSTALL_SWOOLE=${WORKSPACE_INSTALL_SWOOLE}
+          # taint 扩展，用于自动检测 XSS 代码（受污染的字符串），并且还可以用于发现 sql 注入漏洞和 shell 注入等
           - INSTALL_TAINT=${WORKSPACE_INSTALL_TAINT}
+          # png 处理工具
           - INSTALL_LIBPNG=${WORKSPACE_INSTALL_LIBPNG}
+          # php 代码加密工具，还收费，emmm……
           - INSTALL_IONCUBE=${WORKSPACE_INSTALL_IONCUBE}
+          # mysql client
           - INSTALL_MYSQL_CLIENT=${WORKSPACE_INSTALL_MYSQL_CLIENT}
+          # ping 命令，因为 workspace 用的基础镜像是 phusion/baseimage，它没 ping 命令……
           - INSTALL_PING=${WORKSPACE_INSTALL_PING}
+          # sshpass，可以在命令行直接使用密码来进行远程连接和远程拉取文件
           - INSTALL_SSHPASS=${WORKSPACE_INSTALL_SSHPASS}
+          # php mailparse 扩展，用于电子邮件处理
           - INSTALL_MAILPARSE=${WORKSPACE_INSTALL_MAILPARSE}
+          # 一个非 root 用户，以此避免使用 root
           - PUID=${WORKSPACE_PUID}
+          # 非 root 的用户组
           - PGID=${WORKSPACE_PGID}
+          # 一些版本信息
           - CHROME_DRIVER_VERSION=${WORKSPACE_CHROME_DRIVER_VERSION}
           - NODE_VERSION=${WORKSPACE_NODE_VERSION}
           - YARN_VERSION=${WORKSPACE_YARN_VERSION}
           - DRUSH_VERSION=${WORKSPACE_DRUSH_VERSION}
+          # 时区
           - TZ=${WORKSPACE_TIMEZONE}
+          # blackfire 配置
           - BLACKFIRE_CLIENT_ID=${BLACKFIRE_CLIENT_ID}
           - BLACKFIRE_CLIENT_TOKEN=${BLACKFIRE_CLIENT_TOKEN}
+          # 状态栏工具，没卵用
           - INSTALL_POWERLINE=${WORKSPACE_INSTALL_POWERLINE}
+          # 视频处理工具
           - INSTALL_FFMPEG=${WORKSPACE_INSTALL_FFMPEG}
+          # 一个将 shell 解析执行器，可以将一个 shell 拆成多个进程并发并行的执行，能提升效率
           - INSTALL_GNU_PARALLEL=${WORKSPACE_INSTALL_GNU_PARALLEL}
           - http_proxy
           - https_proxy
           - no_proxy
       volumes:
+        # ../:/var/www:cached
+        # 将本机 compose file 所在的上级目录映射到 workspace 容器的 /var/www 目录下，:cached 表示同步级别
         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
       extra_hosts:
+        # 添加容器的 host 映射，即，容器里可以用 dockerhost 这个字符串来代替指定的 ip
         - "dockerhost:${DOCKER_HOST_IP}"
       ports:
+        # 添加端口映射
         - "${WORKSPACE_SSH_PORT}:22"
+      # 是否支持 TTY，虚拟控制台，为 true 时，即可以使用 exec -it 操作
       tty: true
+      # 添加环境变量，如果值是布尔型，需要用单引号括起（包括：y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF）
+      # 这里的环境变量会可以在容器运行后在容器内被访问到，和 build->args 不同
+      # 如果只有 key ，没有值，则会在 compose 项目运行时，自动从 compose 主机的环境变量中解析，这有利于隐藏密码类变量
       environment:
         - PHP_IDE_CONFIG=${PHP_IDE_CONFIG}
+        # docker-in-docker 是 docker 内置的一个容器，用于让容器具备访问 docker daemon api 的能力
+        # 比如 workspace 可以访问 docker-in-docker 容器，而 docker-in-docker 容器内部实现了 docker client
         - DOCKER_HOST=tcp://docker-in-docker:2375
+      # 为服务指定网络驱动
       networks:
         - frontend
         - backend
+      # 指定需要通信的其他容器
+      # 不推荐使用，docker 官方说最终会被删除，而且通信完全可以使用其他方式来实现
+      # 虽然 laradock master 分支，仍然在同
+      # 官方更推荐使用配置容器网络驱动的方式来实现通信
       links:
         - docker-in-docker
+
+      # 关于 workspace 的个人理解
+      # 主要是为了模拟宿主机上的所有运行环境，所以叫做 workspace，它让 windows 平台也拥有了在 linux 平台的特性。
+      # 所以，当我们用 laradock 开启不同环境时，理论上要更改 .env，然后重新构建 workspace，以此契合当前宿主机的环境
+      # 可以看下 workspace/Dockerfile，里面一些组件依赖于 php 版本，所以如果 php 版本发生了变化，workspace 也应该重新构建
+      # 另外，在用 laravel 开发时，由于代码运行在 docker 容器里，如连接 mysql 时，需要指定的是 mysql 容器，而不是 ip 地址
+      # 因此，运行 php artisan migrate 等命令时，就需要进入到 workspace ，而不是在宿主机环境
 
 ### PHP-FPM ##############################################
     php-fpm:
