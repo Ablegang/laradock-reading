@@ -261,6 +261,13 @@ services:
       # 因此，运行 php artisan migrate 等命令时，就需要进入到 workspace ，而不是在宿主机环境
 
 ### PHP-FPM ##############################################
+
+    # PHP-FPM 被作为一个单独的容器运行
+    # nginx + fpm 是 php 四种 SAPI 之一的 fast-cgi，fastcgi process manager，fastcgi 进程管理器
+    # nginx 负责接收 web 请求，再转交给 fpm 主进程，fpm 主进程为每一次请求开启一个子进程来处理，这些子进程还负责解析 php 脚本
+    # nginx 和 fpm 之间有两种通信方式，tcp 和 socket
+    # tcp 形式，是 fpm 默认监听 0.0.0.0:9000 ，而 nginx 则将请求转发给 fpm 服务的 9000 端口
+    # ...待续
     php-fpm:
       build:
         context: ./php-fpm
