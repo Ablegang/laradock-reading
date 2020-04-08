@@ -358,6 +358,12 @@ services:
         - docker-in-docker
 
 ### PHP Worker ############################################
+
+    # 这个容器的 dockerfile 没描述清楚具体是个什么东西，但百度查了下，php 多线程开发有一个 worker 类，和这个容器没有关系，这个一定要注意
+    # 字面意思及 dockerfile 里面看来，这个容器应该是借助 supervisor 管理 laravel queue 的，worker 所指的也是 queue 中的 job
+    # 此容器单独安装了 supervisor
+    # 可以理解为，这个容器就是个 supervisor，如果有需要使用 supervisor 管理的进程
+    # 如果是类似于 php 这样的程序，则要安装到这个容器里，如果是 laravel artisan 这样的，基于 php 命令的代码，则直接通过 volumes 来处理
     php-worker:
       build:
         context: ./php-worker
@@ -382,15 +388,25 @@ services:
           - PUID=${PHP_WORKER_PUID}
           - PGID=${PHP_WORKER_PGID}
       volumes:
+        # 由于需要使用 artisan 命令，所以必须把宿主机代码文件映射到容器内
         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
+        # 这里映射 supervisor 的配置文件
         - ./php-worker/supervisord.d:/etc/supervisord.d
+      # 启动本容器时，同时需要启动 workspace
       depends_on:
         - workspace
+      # 在容器内扩展 hosts
       extra_hosts:
         - "dockerhost:${DOCKER_HOST_IP}"
+      # 只使用 backend 网络驱动
       networks:
         - backend
+
 ### Laravel Horizon ############################################
+
+    # laravel 队列的可视化管理系统，是一个官方扩展包
+    # 此容器单独安装了 supervisor，由于 horizon 是一个 laravel 的扩展包，所以通常是在 laravel 项目中安装（宿主机），不需要在容器内安装
+    # 这个容器主要就是 supervisor 及 laravel 运行的环境，然后就是 laravel-horizon 在 supervisor 的配置模板
     laravel-horizon:
       build:
         context: ./laravel-horizon
@@ -403,12 +419,16 @@ services:
           - INSTALL_CASSANDRA=${PHP_FPM_INSTALL_CASSANDRA}
           - INSTALL_PHPREDIS=${LARAVEL_HORIZON_INSTALL_PHPREDIS}
       volumes:
+        # 注意这里的文件夹映射，没给 :cached，同步级别默认是 :consistent ，完全一致，则每次宿主机此文件夹发生改变后，都会实时同步到容器内
+        # 之所以需要用 :consistent 的同步方式，是因为 horizon 包安装时，是在宿主机安装，所以需要实时同步
         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+        # supervisor 配置
         - ./laravel-horizon/supervisord.d:/etc/supervisord.d
       depends_on:
         - workspace
       extra_hosts:
         - "dockerhost:${DOCKER_HOST_IP}"
+      # 只使用了 backend 网络驱动
       networks:
         - backend
 
@@ -431,6 +451,7 @@ services:
       ports:
         - "${NGINX_HOST_HTTP_PORT}:80"
         - "${NGINX_HOST_HTTPS_PORT}:443"
+      # 需要依赖于 php-fpm 容器
       depends_on:
         - php-fpm
       networks:
