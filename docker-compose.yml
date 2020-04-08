@@ -444,9 +444,13 @@ services:
           - https_proxy
           - no_proxy
       volumes:
+        # ../:/var/www:cached
         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
+        # ./logs/nginx/:/var/log/nginx
         - ${NGINX_HOST_LOG_PATH}:/var/log/nginx
+        # ./nginx/sites/:/etc/nginx/sites-available
         - ${NGINX_SITES_PATH}:/etc/nginx/sites-available
+        # ./nginx/ssl/:/etc/nginx/ssl
         - ${NGINX_SSL_PATH}:/etc/nginx/ssl
       ports:
         - "${NGINX_HOST_HTTP_PORT}:80"
