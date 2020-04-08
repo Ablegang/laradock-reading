@@ -273,11 +273,17 @@ services:
       build:
         context: ./php-fpm
         args:
+          # apt 是否切换到国内源，可以看 php-fpm 的 dockerfile，里面默认切换的是阿里云的源
           - CHANGE_SOURCE=${CHANGE_SOURCE}
+          # PHP 版本，这个会决定拉取哪一个 laradock/php-fpm 父级版本，该镜像使用了 linux/amd64 系统，也决定了 php 的版本
           - LARADOCK_PHP_VERSION=${PHP_VERSION}
+          # phalcon 版本
           - LARADOCK_PHALCON_VERSION=${PHALCON_VERSION}
+          # xdebug
           - INSTALL_XDEBUG=${PHP_FPM_INSTALL_XDEBUG}
+          # phpdebug 扩展
           - INSTALL_PHPDBG=${PHP_FPM_INSTALL_PHPDBG}
+          # blackfire 性能测试工具
           - INSTALL_BLACKFIRE=${INSTALL_BLACKFIRE}
           - INSTALL_SSH2=${PHP_FPM_INSTALL_SSH2}
           - INSTALL_SOAP=${PHP_FPM_INSTALL_SOAP}
@@ -326,20 +332,28 @@ services:
           - https_proxy
           - no_proxy
       volumes:
+        # 数据卷挂载，将当前目录下对应的 ini 共享到 /usr/local/etc/php/php.ini，共享后只需要修改主机目录，docker 容器内也会生效
         - ./php-fpm/php${PHP_VERSION}.ini:/usr/local/etc/php/php.ini
+        # 根据 .env 来：../:/var/www:cached，这里会将宿主机当前目录的父级目录挂载到 /var/www 下，同步级别为 :cached
         - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
       expose:
+        # 声明一个端口
         - "9000"
+      # 扩展 hosts，将 docker 主服务的 ip 重命名为 dockerhost
       extra_hosts:
         - "dockerhost:${DOCKER_HOST_IP}"
+      # 容器运行时环境变量
       environment:
         - PHP_IDE_CONFIG=${PHP_IDE_CONFIG}
         - DOCKER_HOST=tcp://docker-in-docker:2375
         - FAKETIME=${PHP_FPM_FAKETIME}
+      # 当前容器启动时所依赖的其他容器
       depends_on:
         - workspace
+      # 使用的网络驱动
       networks:
         - backend
+      # 指定需要通信的容器
       links:
         - docker-in-docker
 
