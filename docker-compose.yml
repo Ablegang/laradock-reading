@@ -267,7 +267,8 @@ services:
     # nginx 负责接收 web 请求，再转交给 fpm 主进程，fpm 主进程为每一次请求开启一个子进程来处理，这些子进程还负责解析 php 脚本
     # nginx 和 fpm 之间有两种通信方式，tcp 和 socket
     # tcp 形式，是 fpm 默认监听 0.0.0.0:9000 ，而 nginx 则将请求转发给 fpm 服务的 9000 端口
-    # ...待续
+    # socket 形式，是 fpm 专门开启了一个 sock 文件，nginx 则将请求发送给 sock 文件，socket 本质上不是一个文件，只是在 linux “一切皆文件”的形式下，以文件作为表达形式
+    # tcp 和 socket 之间，如果请求压力不大的情况下，性能是差不多的，但如果请求压力较大，则 socket 优于 tcp，socket 借助多路复用原理
     php-fpm:
       build:
         context: ./php-fpm
