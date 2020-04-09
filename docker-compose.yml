@@ -458,6 +458,7 @@ services:
       # 需要依赖于 php-fpm 容器
       depends_on:
         - php-fpm
+      # 使用了 frontend 和 backend 两个网络驱动
       networks:
         - frontend
         - backend
